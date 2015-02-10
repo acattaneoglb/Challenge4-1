@@ -4,7 +4,6 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
-import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -14,7 +13,6 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -25,8 +23,6 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * A placeholder fragment containing a simple view.
@@ -35,8 +31,8 @@ public class OMInfoFragment extends Fragment {
 
     final static String LOG_TAG = OMInfoFragment.class.getSimpleName();
 
-    EditText mEditTextUsername;
-    TextView mTextViewRepos;
+    EditText mEditTextMovieTitle;
+    TextView mTextViewMovieInfo;
 
     public OMInfoFragment() {
     }
@@ -46,33 +42,32 @@ public class OMInfoFragment extends Fragment {
                              Bundle savedInstanceState) {
         View rootView = inflater.inflate(R.layout.fragment_ominfo, container, false);
 
-        mEditTextUsername = (EditText)rootView.findViewById(R.id.edit_text_username);
-        mTextViewRepos = (TextView)rootView.findViewById(R.id.text_view_repos);
-        Button buttonGetRepos = (Button)rootView.findViewById(R.id.button_get_repos);
-        buttonGetRepos.setOnClickListener(new View.OnClickListener() {
+        mEditTextMovieTitle = (EditText)rootView.findViewById(R.id.edit_text_movie_title);
+        mTextViewMovieInfo = (TextView)rootView.findViewById(R.id.text_view_movie_info);
+        Button buttonGetMovieInfo = (Button)rootView.findViewById(R.id.button_get_movie_info);
+        buttonGetMovieInfo.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                String username = mEditTextUsername.getText().toString();
-                String message = String.format(getString(R.string.getting_repos_for_user), username);
+                String movieTitle = mEditTextMovieTitle.getText().toString();
+                String message = String.format(getString(R.string.getting_movie_info), movieTitle);
                 Toast.makeText(getActivity(), message, Toast.LENGTH_SHORT).show();
 
-                new FetchReposTask().execute(username);
+                new FetchReposTask().execute(movieTitle);
             }
         });
 
         return rootView;
     }
 
-    private URL constructURLQuery(String username) throws MalformedURLException {
-        final String GITHUB_BASE_URL = "api.github.com";
-        final String USERS_PATH = "users";
-        final String REPOS_ENDPOINT = "repos";
+    private URL constructURLQuery(String movieTitle) throws MalformedURLException {
+        final String OMDB_BASE_URL = "www.omdbapi.com";
+        final String OMDB_PATH = "";
+        final String OMDB_TITLE_PARAMETER = "t";
 
         Uri.Builder builder = new Uri.Builder();
-        builder.scheme("https").authority(GITHUB_BASE_URL)
-                .appendPath(USERS_PATH)
-                .appendPath(username)
-                .appendPath(REPOS_ENDPOINT);
+        builder.scheme("http").authority(OMDB_BASE_URL)
+                .appendPath(OMDB_PATH)
+                .appendQueryParameter(OMDB_TITLE_PARAMETER, movieTitle);
         Uri uri = builder.build();
         Log.d(LOG_TAG, "Built URI: " + uri.toString());
 
@@ -96,6 +91,37 @@ public class OMInfoFragment extends Fragment {
     }
 
     private String parseResponse(String response) {
+        final String RESPONSE = "Response";
+        final String ERROR = "Error";
+
+        final String TITLE = "Title";
+        final String YEAR = "Year";
+        final String GENRE = "Genre";
+        final String DIRECTOR = "Director";
+        final String ACTORS = "Actors";
+        final String PLOT = "Plot";
+
+        String result = getResources().getString(R.string.error_getting_info);
+
+        try {
+            JSONObject jsonResponse = new JSONObject(response);
+            if (!jsonResponse.getBoolean(RESPONSE)) {
+                result = jsonResponse.getString(ERROR);
+            }
+            else {
+                result = TITLE + ": " + jsonResponse.getString(TITLE) + "\n";
+                result += YEAR + ": " + jsonResponse.getString(YEAR) + "\n";
+                result += GENRE + ": " + jsonResponse.getString(GENRE) + "\n";
+                result += DIRECTOR + ": " + jsonResponse.getString(DIRECTOR) + "\n";
+                result += ACTORS + ": " + jsonResponse.getString(ACTORS) + "\n\n";
+                result += PLOT + ": " + jsonResponse.getString(PLOT);
+            }
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
+        return result;
+/*
         final String REPO_NAME = "name";
         List<String> repos = new ArrayList<>();
         try {
@@ -111,42 +137,44 @@ public class OMInfoFragment extends Fragment {
         }
 
         return TextUtils.join(", ", repos);
+*/
     }
 
     class FetchReposTask extends AsyncTask<String, Void, String> {
         @Override
         protected String doInBackground(String... params) {
-            String username;
-            String response = "";
-            String listOfRepos = "";
+            String movieTitle;
+            String response;
+            String movieInfo = "";
             if (params.length > 0) {
-                username = params[0];
-            } else {
-                username = "octocat";
-            }
+                movieTitle = params[0];
 
-            try {
-                URL url = constructURLQuery(username);
-
-                HttpURLConnection httpConnection = (HttpURLConnection) url.openConnection();
                 try {
-                    response = readFullResponse(httpConnection.getInputStream());
-                    listOfRepos = parseResponse(response);
+                    URL url = constructURLQuery(movieTitle);
+
+                    HttpURLConnection httpConnection = (HttpURLConnection) url.openConnection();
+                    try {
+                        response = readFullResponse(httpConnection.getInputStream());
+                        movieInfo = parseResponse(response);
+                    } catch (java.io.IOException e) {
+                        e.printStackTrace();
+                    } finally {
+                        httpConnection.disconnect();
+                    }
                 } catch (java.io.IOException e) {
                     e.printStackTrace();
-                } finally {
-                    httpConnection.disconnect();
                 }
-            } catch (java.io.IOException e) {
-                e.printStackTrace();
+            } else {
+                movieInfo = getResources().getString(R.string.no_movie);
             }
-            return listOfRepos;
+
+            return movieInfo;
         }
 
         @Override
         protected void onPostExecute(String response) {
             super.onPostExecute(response);
-            mTextViewRepos.setText(response);
+            mTextViewMovieInfo.setText(response);
         }
     }
 }

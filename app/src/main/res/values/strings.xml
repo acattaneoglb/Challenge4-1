@@ -3,5 +3,10 @@
 
     <string name="app_name">OpenMovie Info</string>
     <string name="action_settings">Settings</string>
+    <string name="edit_text_movie_title_hint">Movie title</string>
+    <string name="button_get_movie_info">Get info</string>
+    <string name="getting_movie_info">Getting movie info for %s</string>
+    <string name="error_getting_info">Problems getting the info.</string>
+    <string name="no_movie">There is no spoon... I mean movie.</string>
 
 </resources>
